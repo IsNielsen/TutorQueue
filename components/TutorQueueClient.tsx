@@ -144,8 +144,13 @@ export default function TutorQueueClient({ mode }: Props) {
 						>
 							<div>
 								<div className="flex items-center gap-2">
-									<span className="text-sm px-2 py-0.5 rounded-full border "
-										className={req.status === "waiting" ? "border-blue-300 text-blue-800 bg-blue-50" : "border-green-300 text-green-800 bg-green-100"}
+									<span
+										className={
+											"text-sm px-2 py-0.5 rounded-full border " +
+											(req.status === "waiting"
+												? "border-blue-300 text-blue-800 bg-blue-50"
+												: "border-green-300 text-green-800 bg-green-100")
+										}
 									>
 										{req.status}
 									</span>
