@@ -1,28 +1,26 @@
-Tutor Queue — Next.js 14 + Supabase + Tailwind
+Tutor Queue built with Next.js 14 App Router, Supabase, and Tailwind CSS.
 
-Deployed to Vercel. Use the links and test login below to try it out.
+## Setup
 
-## Live URLs
+1) Create the database table and policies in Supabase
 
-- Student Queue (join the queue):
-  - https://tutor-queue.vercel.app/
+Run the SQL in `supabase/schema.sql` in your Supabase project's SQL editor.
 
-- Tutor Dashboard (manage the queue):
-  - https://tutor-queue.vercel.app/tutor
+2) Configure environment variables
 
-## Test Tutor Login
+Create a file named `.env.local` at the project root with:
 
-Use a test tutor account that you create in Supabase Auth → Users.
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+```
 
-- Email: csqueue@usu.com
-- Password: password
+3) Start the dev server
 
-## How It Works
+```bash
+npm run dev
+```
 
-- Students submit their name and topic at `/`
-- Tutors sign in at `/tutor` (email/password)
-- Requests appear in real-time (Supabase Realtime). Tutors can:
-  - Mark Seen — changes status to `seen`
-  - Remove — deletes the request
-- List updates in real-time and also optimistically as actions are taken
+Open `http://localhost:3000` for the Student Submission page. Visit `http://localhost:3000/tutor` for the Tutor Dashboard.
 
+To access the dashboard, create a user in Supabase Auth (email/password) and sign in. Realtime updates are powered by Supabase Realtime.

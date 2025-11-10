@@ -36,36 +36,60 @@ export default function TutorQueueClient({ mode }: Props) {
 	useEffect(() => {
 		if (mode !== "dashboard") return;
 		loadRequests();
-		const channel = supabase
-			.channel("queue_requests_changes")
-			.on(
-				"postgres_changes",
-				{ event: "*", schema: "public", table: "queue_requests" },
-				(payload) => {
-					setRequests((curr) => {
-						if (payload.eventType === "INSERT") {
-							return [...curr, payload.new as QueueRequest].sort(
-								(a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-							);
-						}
-						if (payload.eventType === "UPDATE") {
-							return curr
-								.map((r) => (r.id === (payload.new as any).id ? (payload.new as QueueRequest) : r))
-								.sort(
-									(a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-								);
-						}
-						if (payload.eventType === "DELETE") {
-							return curr.filter((r) => r.id !== (payload.old as any).id);
-						}
-						return curr;
-					});
+
+		// create a channel and subscribe to Postgres changes for queue_requests
+		const channel = supabase.channel("queue_requests_changes");
+
+		const handler = (payload: any) => {
+			// normalize event type (some transports may differ in casing)
+			const evt = (payload?.eventType || payload?.type || "").toString().toUpperCase();
+			// console.debug for easier debugging in dev
+			// console.debug("realtime payload", evt, payload);
+			setRequests((curr) => {
+				if (evt === "INSERT") {
+					return [...curr, payload.new as QueueRequest].sort(
+						(a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+					);
 				}
-			)
-			.subscribe();
+				if (evt === "UPDATE") {
+					return curr
+						.map((r) => (r.id === (payload.new as any).id ? (payload.new as QueueRequest) : r))
+						.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+				}
+				if (evt === "DELETE") {
+					return curr.filter((r) => r.id !== (payload.old as any).id);
+				}
+				return curr;
+			});
+		};
+
+		channel.on("postgres_changes", { event: "*", schema: "public", table: "queue_requests" }, handler);
+
+		// subscribe and ensure we have a proper channel reference
+		const subscribed = channel.subscribe();
 
 		return () => {
-			supabase.removeChannel(channel);
+			// best-effort unsubscribe cleanup
+			try {
+				// unsubscribe the channel then remove it from the client
+				// `unsubscribe` is safe to call on the RealtimeChannel
+				// and `removeChannel` will remove it from the client state
+				// (some versions of the client return the same object from subscribe)
+				// @ts-ignore
+				if (subscribed?.unsubscribe) subscribed.unsubscribe();
+			} catch (e) {
+				// ignore
+			}
+			try {
+				supabase.removeChannel(subscribed);
+			} catch (e) {
+				// fallback: try removing the original channel
+				try {
+					supabase.removeChannel(channel);
+				} catch {
+					// ignore
+				}
+			}
 		};
 	}, [mode, supabase, loadRequests]);
 
