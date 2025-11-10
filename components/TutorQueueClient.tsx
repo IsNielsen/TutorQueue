@@ -43,22 +43,48 @@ export default function TutorQueueClient({ mode }: Props) {
 		const handler = (payload: any) => {
 			// normalize event type (some transports may differ in casing)
 			const evt = (payload?.eventType || payload?.type || "").toString().toUpperCase();
-			// console.debug for easier debugging in dev
-			// console.debug("realtime payload", evt, payload);
+			// try to find new/old rows under several possible keys used by different transports/versions
+			const newRow = payload?.new ?? payload?.record ?? payload?.payload?.new ?? payload?.after ?? null;
+			const oldRow = payload?.old ?? payload?.old_record ?? payload?.payload?.old ?? payload?.before ?? null;
+
+			// helpful debug output — leave enabled to diagnose missing INSERTs
+			console.debug("realtime: table=queue_requests evt=", evt, { newRow, oldRow, raw: payload });
+			// If we got an INSERT but no structured newRow, reload list as a fallback
+			if (evt === "INSERT" && !newRow) {
+				// fire-and-forget refresh
+				void loadRequests();
+				return;
+			}
+
 			setRequests((curr) => {
 				if (evt === "INSERT") {
-					return [...curr, payload.new as QueueRequest].sort(
+					if (!newRow) return curr; // nothing to add
+					// don't duplicate if already present
+					if (curr.some((r) => r.id === newRow.id)) {
+						// ensure the stored row is up-to-date
+						return curr.map((r) => (r.id === newRow.id ? (newRow as QueueRequest) : r)).sort((a, b) =>
+							new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+						);
+					}
+					return [...curr, newRow as QueueRequest].sort(
 						(a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
 					);
 				}
+
 				if (evt === "UPDATE") {
+					if (!newRow) return curr;
 					return curr
-						.map((r) => (r.id === (payload.new as any).id ? (payload.new as QueueRequest) : r))
+						.map((r) => (r.id === (newRow as any).id ? (newRow as QueueRequest) : r))
 						.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 				}
+
 				if (evt === "DELETE") {
-					return curr.filter((r) => r.id !== (payload.old as any).id);
+					// prefer id from oldRow but fallback to payload.old
+					const id = (oldRow as any)?.id ?? (payload?.old as any)?.id;
+					if (!id) return curr;
+					return curr.filter((r) => r.id !== id);
 				}
+
 				return curr;
 			});
 		};
