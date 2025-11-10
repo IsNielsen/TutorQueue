@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition, useRef } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { QueueRequest } from "@/types/queue";
 import { deleteRequest, markSeen } from "@/app/actions";
@@ -8,6 +8,8 @@ type Props = { mode: "signin" | "dashboard" };
 
 export default function TutorQueueClient({ mode }: Props) {
 	const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+	const [channelStatus, setChannelStatus] = useState<string | null>(null);
+	const [lastRealtimePayload, setLastRealtimePayload] = useState<any>(null);
 	const [isPending, startTransition] = useTransition();
 
 	const [email, setEmail] = useState("");
@@ -40,7 +42,7 @@ export default function TutorQueueClient({ mode }: Props) {
 		// create a channel and subscribe to Postgres changes for queue_requests
 		const channel = supabase.channel("queue_requests_changes");
 
-		const handler = (payload: any) => {
+	const handler = (payload: any) => {
 			// normalize event type (some transports may differ in casing)
 			const evt = (payload?.eventType || payload?.type || "").toString().toUpperCase();
 			// try to find new/old rows under several possible keys used by different transports/versions
@@ -49,6 +51,12 @@ export default function TutorQueueClient({ mode }: Props) {
 
 			// helpful debug output — leave enabled to diagnose missing INSERTs
 			console.debug("realtime: table=queue_requests evt=", evt, { newRow, oldRow, raw: payload });
+			// update UI debug state when enabled
+			try {
+				setLastRealtimePayload({ evt, newRow, oldRow, raw: payload });
+			} catch {
+				// ignore
+			}
 			// If we got an INSERT but no structured newRow, reload list as a fallback
 			if (evt === "INSERT" && !newRow) {
 				// fire-and-forget refresh
@@ -92,7 +100,17 @@ export default function TutorQueueClient({ mode }: Props) {
 		channel.on("postgres_changes", { event: "*", schema: "public", table: "queue_requests" }, handler);
 
 		// subscribe and ensure we have a proper channel reference
-		const subscribed = channel.subscribe();
+		const debug = typeof window !== "undefined" && (process.env.NEXT_PUBLIC_DEBUG_REALTIME === "1" || window.location.hostname === "localhost");
+
+		const subscribed = channel.subscribe((status: string) => {
+			if (debug) console.debug("realtime channel status:", status);
+			setChannelStatus(status);
+			// when channel reports errors or closes, do a safe fallback reload so INSERTs don't get lost
+			if (status === "CHANNEL_ERROR" || status === "CLOSED" || status === "TIMED_OUT") {
+				if (debug) console.debug("realtime channel failed, falling back to loadRequests()");
+				void loadRequests();
+			}
+		});
 
 		return () => {
 			// best-effort unsubscribe cleanup
@@ -118,6 +136,8 @@ export default function TutorQueueClient({ mode }: Props) {
 			}
 		};
 	}, [mode, supabase, loadRequests]);
+
+	const debug = typeof window !== "undefined" && (process.env.NEXT_PUBLIC_DEBUG_REALTIME === "1" || window.location.hostname === "localhost");
 
 	if (mode === "signin") {
 		return (
@@ -164,6 +184,14 @@ export default function TutorQueueClient({ mode }: Props) {
 
 	return (
 		<div className="space-y-4">
+			{debug && (
+				<div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700">
+					<div className="font-medium text-zinc-900">Realtime debug</div>
+					<div>Channel status: <code>{channelStatus ?? "—"}</code></div>
+					<div className="mt-2">Last payload:</div>
+					<pre className="max-h-40 overflow-auto text-xs mt-1">{JSON.stringify(lastRealtimePayload, null, 2)}</pre>
+				</div>
+			)}
 			<div className="flex items-center justify-between">
 				<h2 className="text-lg font-medium text-zinc-900">Current Requests</h2>
 				<button
