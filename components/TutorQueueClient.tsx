@@ -118,6 +118,17 @@ export default function TutorQueueClient({ mode }: Props) {
 		};
 	}, [mode, supabase, loadRequests]);
 
+	// Auto-refresh the requests list every 10 seconds when on the dashboard.
+	// This is a lightweight fallback to ensure the UI stays up-to-date in
+	// environments where realtime websocket events may be unreliable.
+	useEffect(() => {
+		if (mode !== "dashboard") return;
+		const id = setInterval(() => {
+			void loadRequests();
+		}, 10_000);
+		return () => clearInterval(id);
+	}, [mode, loadRequests]);
+
 	if (mode === "signin") {
 		return (
 			<form
