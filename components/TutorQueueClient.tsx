@@ -152,20 +152,20 @@ export default function TutorQueueClient({ mode }: Props) {
 				className="space-y-3"
 			>
 				<div>
-					<label className="block text-sm font-medium text-zinc-900">Email</label>
+					<label className="block text-sm font-medium text-grey-900">Email</label>
 					<input
 						type="email"
-						className="mt-1 w-full rounded-md border border-zinc-400 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-zinc-900 placeholder:text-zinc-500 bg-white"
+						className="mt-1 w-full rounded-md border border-zinc-400 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-purple-900 placeholder:text-purple-500 bg-white"
 						value={email}
 						onChange={(e) => setEmail(e.target.value)}
 						required
 					/>
 				</div>
 				<div>
-					<label className="block text-sm font-medium text-zinc-900">Password</label>
+					<label className="block text-sm font-medium text-grey-900">Password</label>
 					<input
 						type="password"
-						className="mt-1 w-full rounded-md border border-zinc-400 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-zinc-900 placeholder:text-zinc-500 bg-white"
+						className="mt-1 w-full rounded-md border border-zinc-400 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-purple-900 placeholder:text-putple-500 bg-white"
 						value={password}
 						onChange={(e) => setPassword(e.target.value)}
 						required
@@ -174,7 +174,7 @@ export default function TutorQueueClient({ mode }: Props) {
 				{authError && <p className="text-sm text-red-700">{authError}</p>}
 				<button
 					type="submit"
-					className="inline-flex items-center justify-center rounded-md bg-blue-700 px-4 py-2 text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-700 w-full"
+					className="inline-flex items-center justify-center rounded-md bg-purple-700 px-4 py-2 text-white hover:bg-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-700 w-full"
 				>
 					Sign In
 				</button>
