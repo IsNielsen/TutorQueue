@@ -18,6 +18,16 @@ export default function TutorQueueClient({ mode }: Props) {
 	const [loading, setLoading] = useState(mode === "dashboard");
 	const [error, setError] = useState<string | null>(null);
 
+	// queue metrics
+	const AVERAGE_WAIT_MIN_PER_STUDENT = 15;
+	const waitingRequests = useMemo(() => requests.filter((r) => r.status === "waiting"), [requests]);
+	const inQueueCount = waitingRequests.length;
+	const waitingPositionById = useMemo(() => {
+		const map = new Map<string, number>();
+		waitingRequests.forEach((r, i) => map.set(r.id, i));
+		return map;
+	}, [waitingRequests]);
+
 	const loadRequests = useCallback(async () => {
 		setLoading(true);
 		setError(null);
@@ -259,5 +269,3 @@ export default function TutorQueueClient({ mode }: Props) {
 		</div>
 	);
 }
-
-
