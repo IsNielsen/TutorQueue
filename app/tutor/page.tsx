@@ -20,16 +20,14 @@ export default async function TutorPage() {
 	}
 
 	return (
-		<div className="min-h-screen w-full p-4 bg-zinc-50">
+		<div className="min-h-screen w-full p-6 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-indigo-600">
 			<div className="max-w-5xl mx-auto">
-				<div className="flex items-center justify-between mb-4">
-					<h1 className="text-2xl font-semibold text-zinc-900">Tutor Queue</h1>
-					<div className="text-sm text-zinc-800">Signed in as {user.email}</div>
+				<div className="flex items-center justify-between mb-6">
+					<h1 className="text-2xl font-semibold text-white">Tutor Queue</h1>
+					<div className="text-sm text-white/90">Signed in as {user.email}</div>
 				</div>
 				<TutorQueueClient mode="dashboard" />
 			</div>
 		</div>
 	);
 }
-
-
