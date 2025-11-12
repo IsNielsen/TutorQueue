@@ -18,6 +18,16 @@ export default function TutorQueueClient({ mode }: Props) {
 	const [loading, setLoading] = useState(mode === "dashboard");
 	const [error, setError] = useState<string | null>(null);
 
+	// queue metrics
+	const AVERAGE_WAIT_MIN_PER_STUDENT = 15;
+	const waitingRequests = useMemo(() => requests.filter((r) => r.status === "waiting"), [requests]);
+	const inQueueCount = waitingRequests.length;
+	const waitingPositionById = useMemo(() => {
+		const map = new Map<string, number>();
+		waitingRequests.forEach((r, i) => map.set(r.id, i));
+		return map;
+	}, [waitingRequests]);
+
 	const loadRequests = useCallback(async () => {
 		setLoading(true);
 		setError(null);
@@ -142,20 +152,20 @@ export default function TutorQueueClient({ mode }: Props) {
 				className="space-y-3"
 			>
 				<div>
-					<label className="block text-sm font-medium text-zinc-900">Email</label>
+					<label className="block text-sm font-medium text-grey-900">Email</label>
 					<input
 						type="email"
-						className="mt-1 w-full rounded-md border border-zinc-400 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-zinc-900 placeholder:text-zinc-500 bg-white"
+						className="mt-1 w-full rounded-md border border-zinc-400 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-purple-900 placeholder:text-purple-500 bg-white"
 						value={email}
 						onChange={(e) => setEmail(e.target.value)}
 						required
 					/>
 				</div>
 				<div>
-					<label className="block text-sm font-medium text-zinc-900">Password</label>
+					<label className="block text-sm font-medium text-grey-900">Password</label>
 					<input
 						type="password"
-						className="mt-1 w-full rounded-md border border-zinc-400 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-zinc-900 placeholder:text-zinc-500 bg-white"
+						className="mt-1 w-full rounded-md border border-zinc-400 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-purple-900 placeholder:text-putple-500 bg-white"
 						value={password}
 						onChange={(e) => setPassword(e.target.value)}
 						required
@@ -164,7 +174,7 @@ export default function TutorQueueClient({ mode }: Props) {
 				{authError && <p className="text-sm text-red-700">{authError}</p>}
 				<button
 					type="submit"
-					className="inline-flex items-center justify-center rounded-md bg-blue-700 px-4 py-2 text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-700 w-full"
+					className="inline-flex items-center justify-center rounded-md bg-purple-700 px-4 py-2 text-white hover:bg-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-700 w-full"
 				>
 					Sign In
 				</button>
@@ -173,91 +183,126 @@ export default function TutorQueueClient({ mode }: Props) {
 	}
 
 	return (
-		<div className="space-y-4">
-
+		<div className="space-y-6">
 			<div className="flex items-center justify-between">
-				<h2 className="text-lg font-medium text-zinc-900">Current Requests</h2>
+				<div className="text-center mx-auto">
+					<div className="mx-auto mb-2 h-12 w-12 rounded-2xl bg-white/20 text-white flex items-center justify-center backdrop-blur-sm">
+						<span className="text-lg">👥</span>
+					</div>
+					<h2 className="text-white text-xl font-semibold">Queue Status</h2>
+					<p className="text-white/80 text-sm">Real-time position tracking</p>
+				</div>
 				<button
 					onClick={async () => {
 						await supabase.auth.signOut();
 						window.location.reload();
 					}}
-					className="text-sm text-zinc-800 hover:text-zinc-900"
+					className="text-sm text-white hover:text-white/90"
 				>
 					Sign out
 				</button>
 			</div>
+
+			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<div className="rounded-2xl border border-white/20 bg-white/10 text-white p-4 backdrop-blur-md">
+					<p className="text-sm text-white/80">In Queue</p>
+					<p className="text-2xl font-semibold mt-1">{inQueueCount}</p>
+				</div>
+				<div className="rounded-2xl border border-white/20 bg-white/10 text-white p-4 backdrop-blur-md">
+					<p className="text-sm text-white/80">Avg Wait</p>
+					<p className="text-2xl font-semibold mt-1">{AVERAGE_WAIT_MIN_PER_STUDENT} min</p>
+					<p className="text-xs text-white/70 mt-0.5">per student</p>
+				</div>
+			</div>
+
 			{loading ? (
-				<div className="text-sm text-zinc-800">Loading…</div>
+				<div className="text-sm text-white">Loading…</div>
 			) : error ? (
-				<div className="text-sm text-red-700">{error}</div>
+				<div className="text-sm text-red-200">{error}</div>
 			) : (
 				<ul className="space-y-3">
-					{requests.map((req) => (
-						<li
-							key={req.id}
-							className={
-								"rounded-lg border p-4 flex items-start justify-between gap-4 " +
-								(req.status === "waiting"
-									? "bg-white border-blue-200"
-									: "bg-green-50 border-green-200")
-							}
-						>
-							<div>
-								<div className="flex items-center gap-2">
-									<span
-										className={
-											"text-sm px-2 py-0.5 rounded-full border " +
-											(req.status === "waiting"
-												? "border-blue-300 text-blue-800 bg-blue-50"
-												: "border-green-300 text-green-800 bg-green-100")
-										}
-									>
-										{req.status}
-									</span>
-									<span className="text-zinc-900 font-medium">{req.student_name}</span>
+					{requests.map((req, idx) => {
+						const waitingPos = waitingPositionById.get(req.id) ?? 0;
+						const estWait = Math.max(0, waitingPos * AVERAGE_WAIT_MIN_PER_STUDENT);
+						const isServing = req.status === "seen";
+						return (
+							<li
+								key={req.id}
+								className={
+									"relative rounded-2xl border p-4 flex items-start justify-between gap-4 " +
+									(isServing
+										? "bg-white text-zinc-900 border-white/60 shadow-lg"
+										: "bg-white/10 text-white border-white/20 backdrop-blur-md")
+								}
+							>
+								<div className="flex items-start gap-3">
+									<div className={
+										"mt-0.5 h-9 w-9 shrink-0 rounded-lg flex items-center justify-center text-sm font-semibold " +
+										(isServing ? "bg-green-500 text-white" : "bg-white/20 text-white border border-white/30")
+									}>
+										#{idx + 1}
+									</div>
+									<div>
+										<div className="flex items-center gap-2">
+											<span
+												className={
+													"text-xs px-2 py-0.5 rounded-full border " +
+													(isServing
+														? "border-green-600 text-green-800 bg-green-100"
+														: "border-white/30 text-white bg-white/10")
+												}
+											>
+												{isServing ? "now serving" : "waiting"}
+											</span>
+											<span className={isServing ? "text-zinc-900 font-medium" : "text-white font-medium"}>{req.student_name}</span>
+										</div>
+										{req.topic_area && (
+											<p className={isServing ? "text-sm text-zinc-700 mt-1 whitespace-pre-wrap" : "text-sm text-white/90 mt-1 whitespace-pre-wrap"}>{req.topic_area}</p>
+										)}
+										<p className={isServing ? "text-xs text-zinc-500 mt-1" : "text-xs text-white/80 mt-1"}>
+											{isServing ? "0 min wait" : `${estWait} min wait`}
+										</p>
+									</div>
 								</div>
-								{req.topic_area && (
-									<p className="text-sm text-zinc-800 mt-1 whitespace-pre-wrap">{req.topic_area}</p>
-								)}
-								<p className="text-xs text-zinc-500 mt-1">
-									{new Date(req.created_at).toLocaleString()}
-								</p>
-							</div>
-							<div className="flex gap-2">
-								<button
-									onClick={() =>
-										startTransition(async () => {
-											// optimistic update
-											setRequests((curr) => curr.map((r) => (r.id === req.id ? { ...r, status: "seen" } : r)));
-											await markSeen(req.id);
-										})
-									}
-									className="rounded-md border border-zinc-500 px-3 py-1.5 text-sm hover:bg-zinc-100 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-600 disabled:opacity-60"
-									disabled={isPending || req.status === "seen"}
-								>
-									Mark Seen
-								</button>
-								<button
-									onClick={() =>
-										startTransition(async () => {
-											// optimistic update
-											setRequests((curr) => curr.filter((r) => r.id !== req.id));
-											await deleteRequest(req.id);
-										})
-									}
-									className="rounded-md bg-red-700 text-white px-3 py-1.5 text-sm hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-700 disabled:opacity-60"
-									disabled={isPending}
-								>
-									Remove
-								</button>
-							</div>
-						</li>
-					))}
+								<div className="flex gap-2">
+									<button
+										onClick={() =>
+											startTransition(async () => {
+												setRequests((curr) => curr.map((r) => (r.id === req.id ? { ...r, status: "seen" } : r)));
+												await markSeen(req.id);
+											})
+										}
+										className={
+											"rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 disabled:opacity-60 " +
+											(isServing
+												? "border border-zinc-500 text-zinc-900 hover:bg-zinc-100 focus:ring-zinc-600"
+												: "border border-white/40 text-white hover:bg-white/10 focus:ring-white")
+										}
+										disabled={isPending || req.status === "seen"}
+									>
+										Mark Seen
+									</button>
+									<button
+										onClick={() =>
+											startTransition(async () => {
+												setRequests((curr) => curr.filter((r) => r.id !== req.id));
+												await deleteRequest(req.id);
+											})
+										}
+										className={
+											"rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 disabled:opacity-60 " +
+											(isServing ? "bg-red-700 text-white hover:bg-red-800 focus:ring-red-700" : "bg-red-700 text-white hover:bg-red-800 focus:ring-red-700")
+										}
+										disabled={isPending}
+									>
+										Remove
+									</button>
+								</div>
+							</li>
+						);
+					})}
 				</ul>
 			)}
 		</div>
 	);
 }
-
-
